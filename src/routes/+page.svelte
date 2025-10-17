@@ -15,13 +15,14 @@
 	let chartCanvas: HTMLCanvasElement | undefined = $state();
 	let chartInstance: Chart | null = null;
 
-	// Prepare chart data
 	let chartData = $derived.by(() => {
 		const data = Object.entries(aggregatedByContract).map(([contract, total]) => {
 			const stablecoin = stablecoinsMap.get(contract);
-			const value = Number(total) / 10 ** (stablecoin?.decimals ?? 0);
+			const decimals = stablecoin && 'decimals' in stablecoin ? stablecoin.decimals : 18;
+			const symbol = stablecoin && 'symbol' in stablecoin ? stablecoin.symbol : 'Unknown';
+			const value = Number(total) / 10 ** decimals;
 			return {
-				name: stablecoin?.symbol ?? 'Unknown',
+				name: symbol,
 				value: value,
 				contract: contract
 			};
@@ -33,20 +34,18 @@
 				{
 					label: 'Transfer Volume',
 					data: data.map((d) => d.value),
-					backgroundColor: 'rgba(59, 130, 246, 0.8)',
-					borderColor: 'rgba(59, 130, 246, 1)',
+					backgroundColor: 'rgba(255, 255, 255, 0.15)',
+					borderColor: 'rgba(255, 255, 255, 0.3)',
 					borderWidth: 1,
-					borderRadius: 4
+					borderRadius: 0
 				}
 			]
 		};
 	});
 
-	// Initialize and update chart when canvas or data changes
 	$effect(() => {
 		if (chartCanvas && chartData.labels.length > 0) {
 			if (!chartInstance) {
-				// Initialize chart
 				chartInstance = new Chart(chartCanvas, {
 					type: 'bar',
 					data: chartData,
@@ -57,29 +56,46 @@
 							legend: {
 								display: false
 							},
-							tooltip: {
-								backgroundColor: 'rgba(15, 23, 42, 0.9)',
-								titleColor: 'rgba(148, 163, 184, 1)',
-								bodyColor: 'rgba(255, 255, 255, 1)',
-								borderColor: 'rgba(51, 65, 85, 1)',
-								borderWidth: 1,
-								padding: 12,
-								displayColors: false,
-								callbacks: {
-									label: function (context: any) {
-										return formatNumber(context.parsed.y);
-									}
+						tooltip: {
+							backgroundColor: 'rgba(0, 0, 0, 0.95)',
+							titleColor: 'rgba(255, 255, 255, 0.8)',
+							bodyColor: 'rgba(255, 255, 255, 0.6)',
+							borderColor: 'rgba(255, 255, 255, 0.2)',
+							borderWidth: 1,
+							padding: 8,
+							displayColors: false,
+							titleFont: {
+								family: 'monospace',
+								size: 10,
+								weight: 'bold'
+							},
+							bodyFont: {
+								family: 'monospace',
+								size: 10
+							},
+							callbacks: {
+								label: function (context: any) {
+									return 'VOL: ' + formatNumber(context.parsed.y);
 								}
 							}
+						}
 						},
 						scales: {
 							y: {
 								beginAtZero: true,
 								grid: {
-									color: 'rgba(51, 65, 85, 0.3)'
+									color: 'rgba(255, 255, 255, 0.05)',
+									lineWidth: 1
 								},
 								ticks: {
-									color: 'rgba(148, 163, 184, 1)'
+									color: 'rgba(255, 255, 255, 0.4)',
+									font: {
+										family: 'monospace',
+										size: 9
+									}
+								},
+								border: {
+									color: 'rgba(255, 255, 255, 0.1)'
 								}
 							},
 							x: {
@@ -87,21 +103,26 @@
 									display: false
 								},
 								ticks: {
-									color: 'rgba(148, 163, 184, 1)'
+									color: 'rgba(255, 255, 255, 0.4)',
+									font: {
+										family: 'monospace',
+										size: 9
+									}
+								},
+								border: {
+									color: 'rgba(255, 255, 255, 0.1)'
 								}
 							}
 						}
 					}
 				});
 			} else {
-				// Update existing chart
 				chartInstance.data = chartData;
 				chartInstance.update('none');
 			}
 		}
 	});
 
-	// Track value changes for animations
 	function highlightUpdate(contract: string) {
 		updatedContracts.add(contract);
 		updatedContracts = updatedContracts;
@@ -124,7 +145,6 @@
 			const transfers = JSON.parse(event.data) as TransferEvent[];
 			eventCount += transfers.length;
 
-			// Aggregate values by contract
 			const updated = { ...aggregatedByContract };
 			transfers.forEach((transfer) => {
 				const contract = transfer.contract.toLowerCase();
@@ -138,7 +158,6 @@
 			});
 			aggregatedByContract = updated;
 
-			// Keep only recent events for performance
 			events = [...transfers, ...events].slice(0, 100);
 		};
 
@@ -191,171 +210,168 @@
 	}
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-	<div class="container mx-auto max-w-6xl px-4 py-8">
+<div class="min-h-screen bg-black font-mono">
+	<div class="container mx-auto max-w-7xl px-4 py-6">
+		<!-- Tactical Frame Top -->
+		<div class="absolute left-3 top-3 h-8 w-8 border-l border-t border-white/20"></div>
+		<div class="absolute right-3 top-3 h-8 w-8 border-r border-t border-white/20"></div>
+		<div class="absolute bottom-3 left-3 h-8 w-8 border-b border-l border-white/20"></div>
+		<div class="absolute bottom-3 right-3 h-8 w-8 border-b border-r border-white/20"></div>
+
 		<!-- Header -->
-		<div class="mb-8">
-			<h1
-				class="mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-4xl font-bold text-transparent text-white"
-			>
-				Stablecoin Transfer Tracker
-			</h1>
-			<div class="flex items-center gap-4 text-sm">
-				<div class="flex items-center gap-2">
-					<div
-						class={`h-2 w-2 rounded-full ${isConnected ? 'animate-pulse bg-green-500' : 'bg-red-500'}`}
-					></div>
-					<span class="text-slate-400">{isConnected ? 'Live' : 'Disconnected'}</span>
+		<div class="mb-6 border-b border-white/5 pb-4">
+			<div class="mb-2 flex items-center justify-between">
+				<h1 class="text-sm font-semibold tracking-widest text-white/90 uppercase">
+					STABLECOIN TRANSFER TRACKER
+				</h1>
+				<div class="text-[10px] text-white/40">
+					Last Update {new Date().toLocaleString('en-US', {
+						hour12: false,
+						year: 'numeric',
+						month: '2-digit',
+						day: '2-digit',
+						hour: '2-digit',
+						minute: '2-digit'
+					})}
 				</div>
-				<span class="text-slate-500">•</span>
-				<span class="text-slate-400">{eventCount.toLocaleString()} events processed</span>
+			</div>
+			<div class="flex items-center gap-4 text-[10px] uppercase tracking-wider">
+				<div class="flex items-center gap-2">
+					<span class="text-white/40">Status:</span>
+					<span class={isConnected ? 'text-orange-500' : 'text-red-500'}>
+						{isConnected ? '● LIVE FEED ACTIVE' : '○ DISCONNECTED'}
+					</span>
+				</div>
+				<div class="h-2 w-px bg-white/10"></div>
+				<div class="flex items-center gap-2">
+					<span class="text-white/40">Events Processed:</span>
+					<span class="text-white/80">{eventCount.toLocaleString()}</span>
+				</div>
 			</div>
 		</div>
 
-		<!-- Stats Footer -->
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			<div class="rounded-xl border border-slate-800/30 bg-slate-900/30 px-4 py-3 backdrop-blur-xl">
-				<div class="mb-1 text-xs tracking-wider text-slate-500 uppercase">Active Contracts</div>
-				<div class="text-2xl font-bold text-white">{Object.keys(aggregatedByContract).length}</div>
+		<!-- Intelligence Stats -->
+		<div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+			<div class="border border-white/5 bg-white/[0.02] p-3">
+				<div class="mb-1 flex items-center justify-between">
+					<div class="text-[10px] tracking-widest text-white/40 uppercase">Active Targets</div>
+					<div class="h-px flex-1 bg-white/5 mx-2"></div>
+				</div>
+				<div class="text-2xl font-bold tabular-nums text-white/90">
+					{Object.keys(aggregatedByContract).length}
+				</div>
 			</div>
-			<div class="rounded-xl border border-slate-800/30 bg-slate-900/30 px-4 py-3 backdrop-blur-xl">
-				<div class="mb-1 text-xs tracking-wider text-slate-500 uppercase">Total Events</div>
-				<div class="text-2xl font-bold text-white">{eventCount.toLocaleString()}</div>
+			<div class="border border-white/5 bg-white/[0.02] p-3">
+				<div class="mb-1 flex items-center justify-between">
+					<div class="text-[10px] tracking-widest text-white/40 uppercase">Total Intercepts</div>
+					<div class="h-px flex-1 bg-white/5 mx-2"></div>
+				</div>
+				<div class="text-2xl font-bold tabular-nums text-white/90">
+					{eventCount.toLocaleString()}
+				</div>
 			</div>
-			<div class="rounded-xl border border-slate-800/30 bg-slate-900/30 px-4 py-3 backdrop-blur-xl">
-				<div class="mb-1 text-xs tracking-wider text-slate-500 uppercase">Buffer Size</div>
-				<div class="text-2xl font-bold text-white">{events.length}</div>
+			<div class="border border-white/5 bg-white/[0.02] p-3">
+				<div class="mb-1 flex items-center justify-between">
+					<div class="text-[10px] tracking-widest text-white/40 uppercase">Live Buffer</div>
+					<div class="h-px flex-1 bg-white/5 mx-2"></div>
+				</div>
+				<div class="text-2xl font-bold tabular-nums text-white/90">{events.length}</div>
 			</div>
 		</div>
 
-		<!-- Bar Chart Card -->
-		<div
-			class="mt-6 overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 shadow-2xl backdrop-blur-xl"
-		>
-			<div class="border-b border-slate-800/50 px-6 py-4">
-				<h2 class="text-xl font-semibold text-white">Volume by Asset</h2>
+		<!-- Volume Analysis -->
+		<div class="mb-4 border border-white/5 bg-white/[0.01]">
+			<div class="border-b border-white/5 px-4 py-2">
+				<h2 class="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+					Transfer Volume Analysis
+				</h2>
 			</div>
 
-			<div class="px-6 py-8">
+			<div class="px-4 py-4">
 				{#if Object.keys(aggregatedByContract).length === 0}
-					<div class="flex flex-col items-center gap-3 py-12 text-slate-500">
-						<div
-							class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50"
-						>
-							<svg
-								class="h-6 w-6 text-slate-600"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-								/>
-							</svg>
+					<div class="flex flex-col items-center gap-2 py-8 text-white/30">
+						<div class="text-4xl animate-pulse text-orange-500/60">◉</div>
+						<div class="text-[10px] uppercase tracking-widest">
+							» Awaiting Intelligence Data...
 						</div>
-						<span>Waiting for transfer data...</span>
 					</div>
 				{:else}
-					<div class="h-80">
+					<div class="h-64">
 						<canvas bind:this={chartCanvas}></canvas>
 					</div>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Table Card -->
-		<div
-			class="mt-6 overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 shadow-2xl backdrop-blur-xl"
-		>
-			<div class="border-b border-slate-800/50 px-6 py-4">
-				<h2 class="text-xl font-semibold text-white">Aggregated Transfer Values</h2>
+		<!-- Target Aggregation -->
+		<div class="mb-4 border border-white/5 bg-white/[0.01]">
+			<div class="border-b border-white/5 px-4 py-2">
+				<h2 class="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+					Aggregated Target Values
+				</h2>
 			</div>
 
 			<div class="overflow-x-auto">
 				<table class="w-full">
 					<thead>
-						<tr class="border-b border-slate-800/50">
-							<th
-								class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								Asset
+						<tr class="border-b border-white/5">
+							<th class="px-4 py-2 text-left text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Asset ID
 							</th>
-							<th
-								class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
+							<th class="px-4 py-2 text-right text-[10px] font-medium tracking-widest text-white/40 uppercase">
 								Total Volume
 							</th>
-							<th
-								class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								Contract
+							<th class="px-4 py-2 text-right text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Contract Address
 							</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-800/30">
+					<tbody class="divide-y divide-white/5">
 						{#if Object.entries(aggregatedByContract).length === 0}
 							<tr>
-								<td colspan="3" class="px-6 py-12 text-center text-slate-500">
-									<div class="flex flex-col items-center gap-3">
-										<div
-											class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50"
-										>
-											<svg
-												class="h-6 w-6 text-slate-600"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-												/>
-											</svg>
-										</div>
-										<span>Waiting for transfer events...</span>
+								<td colspan="3" class="px-4 py-8 text-center text-white/30">
+									<div class="flex flex-col items-center gap-2">
+										<div class="text-3xl animate-pulse text-orange-500/60">◉</div>
+										<span class="text-[10px] uppercase tracking-widest">Scanning for activity...</span>
 									</div>
 								</td>
 							</tr>
 						{:else}
 							{#each Object.entries(aggregatedByContract) as [contract, total]}
 								{@const stablecoin = stablecoinsMap.get(contract)}
-								{@const formattedValue = Number(total) / 10 ** (stablecoin?.decimals ?? 0)}
+								{@const decimals = stablecoin && 'decimals' in stablecoin ? stablecoin.decimals : 18}
+								{@const symbol = stablecoin && 'symbol' in stablecoin ? stablecoin.symbol : 'UNKNOWN'}
+								{@const coinType = stablecoin && 'type' in stablecoin ? stablecoin.type : 'unidentified'}
+								{@const formattedValue = Number(total) / 10 ** decimals}
 								{@const isUpdating = updatedContracts.has(contract)}
 								<tr
-									class="transition-all duration-300 hover:bg-slate-800/30 {isUpdating
-										? 'bg-blue-500/10'
+									class="transition-all duration-300 hover:bg-white/[0.02] {isUpdating
+										? 'bg-orange-500/5'
 										: ''}"
 								>
-									<td class="px-6 py-4">
-										<div class="flex items-center gap-3">
-											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-lg font-semibold text-blue-400"
-											>
-												{stablecoin?.symbol?.[0] ?? '?'}
+									<td class="px-4 py-2">
+										<div class="flex items-center gap-2">
+											<div class="flex h-6 w-6 items-center justify-center border border-white/10 text-[10px] font-bold text-white/60">
+												{symbol[0]}
 											</div>
 											<div>
-												<div class="text-sm font-medium text-white">
-													{stablecoin?.symbol ?? 'Unknown'}
+												<div class="text-[11px] font-semibold text-white/80">
+													{symbol}
 												</div>
-												<div class="text-xs text-slate-500">{stablecoin?.type ?? contract}</div>
+												<div class="text-[9px] text-white/30 uppercase">{coinType}</div>
 											</div>
 										</div>
 									</td>
-									<td class="px-6 py-4 text-right">
+									<td class="px-4 py-2 text-right">
 										<div
-											class={`text-lg font-semibold transition-colors duration-300 ${isUpdating ? 'text-green-400' : 'text-white'}`}
+											class={`text-sm font-semibold tabular-nums transition-colors duration-300 ${isUpdating ? 'text-orange-500' : 'text-white/80'}`}
 										>
 											{formatNumber(formattedValue)}
 										</div>
-										<div class="text-xs text-slate-500">{stablecoin?.symbol ?? ''}</div>
+										<div class="text-[9px] text-white/30">{symbol}</div>
 									</td>
-									<td class="px-6 py-4 text-right">
-										<code class="rounded bg-slate-800/50 px-2 py-1 text-xs text-slate-400">
+									<td class="px-4 py-2 text-right">
+										<code class="text-[10px] text-white/50">
 											{contract.slice(0, 6)}...{contract.slice(-4)}
 										</code>
 									</td>
@@ -367,126 +383,101 @@
 			</div>
 		</div>
 
-		<!-- Latest Transactions Table -->
-		<div
-			class="mt-6 overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 shadow-2xl backdrop-blur-xl"
-		>
-			<div class="border-b border-slate-800/50 px-6 py-4">
-				<h2 class="text-xl font-semibold text-white">Latest Transactions</h2>
+		<!-- Live Transaction Feed -->
+		<div class="border border-white/5 bg-white/[0.01]">
+			<div class="border-b border-white/5 px-4 py-2">
+				<div class="flex items-center gap-3">
+					<h2 class="text-[11px] font-semibold uppercase tracking-widest text-white/60">
+						Live Transaction Feed
+					</h2>
+					<div class="ml-auto text-[9px] text-white/30">
+						[Displaying Top 20 Recent Intercepts]
+					</div>
+				</div>
 			</div>
 
 			<div class="overflow-x-auto">
 				<table class="w-full">
 					<thead>
-						<tr class="border-b border-slate-800/50">
-							<th
-								class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
+						<tr class="border-b border-white/5">
+							<th class="px-4 py-2 text-left text-[10px] font-medium tracking-widest text-white/40 uppercase">
 								Asset
 							</th>
-							<th
-								class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								From
+							<th class="px-4 py-2 text-left text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Origin
 							</th>
-							<th
-								class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								To
+							<th class="px-4 py-2 text-left text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Destination
 							</th>
-						<th
-							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-						>
-							Amount
-						</th>
-						<th
-							class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
-						>
-							Timestamp
-						</th>
-						<th
-							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-						>
-							Block
-						</th>
-						<th
-							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-						>
-							Time
-						</th>
+							<th class="px-4 py-2 text-right text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Value
+							</th>
+							<th class="px-4 py-2 text-left text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Timestamp
+							</th>
+							<th class="px-4 py-2 text-right text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Block#
+							</th>
+							<th class="px-4 py-2 text-right text-[10px] font-medium tracking-widest text-white/40 uppercase">
+								Elapsed
+							</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-800/30">
+					<tbody class="divide-y divide-white/5">
 						{#if events.length === 0}
 							<tr>
-								<td colspan="7" class="px-6 py-12 text-center text-slate-500">
-									<div class="flex flex-col items-center gap-3">
-										<div
-											class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50"
-										>
-											<svg
-												class="h-6 w-6 text-slate-600"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-												/>
-											</svg>
-										</div>
-										<span>Waiting for transactions...</span>
+								<td colspan="7" class="px-4 py-8 text-center text-white/30">
+									<div class="flex flex-col items-center gap-2">
+										<div class="text-3xl animate-pulse text-orange-500/60">◉</div>
+										<span class="text-[10px] uppercase tracking-widest">Monitoring transaction stream...</span>
 									</div>
 								</td>
 							</tr>
 						{:else}
 							{#each events.slice(0, 20) as transfer}
 								{@const stablecoin = stablecoinsMap.get(transfer.contract.toLowerCase())}
-								{@const amount = Number(transfer.event.value) / 10 ** (stablecoin?.decimals ?? 0)}
+								{@const decimals = stablecoin && 'decimals' in stablecoin ? stablecoin.decimals : 18}
+								{@const symbol = stablecoin && 'symbol' in stablecoin ? stablecoin.symbol : 'UNK'}
+								{@const amount = Number(transfer.event.value) / 10 ** decimals}
 								{@const formattedTimestamp = formatTimestamp(transfer.timestamp)}
 								{@const timeAgo = getTimeAgo(transfer.timestamp)}
-								<tr class="transition-all duration-300 hover:bg-slate-800/30">
-									<td class="px-6 py-4">
+								<tr class="transition-all duration-200 hover:bg-white/[0.02]">
+									<td class="px-4 py-2">
 										<div class="flex items-center gap-2">
-											<div
-												class="flex h-8 w-8 items-center justify-center rounded-full border border-blue-500/30 bg-gradient-to-br from-blue-500/20 to-purple-500/20 text-sm font-semibold text-blue-400"
-											>
-												{stablecoin?.symbol?.[0] ?? '?'}
+											<div class="flex h-5 w-5 items-center justify-center border border-white/10 text-[9px] font-bold text-white/50">
+												{symbol[0]}
 											</div>
-											<span class="text-sm font-medium text-white"
-												>{stablecoin?.symbol ?? 'Unknown'}</span
+											<span class="text-[10px] font-semibold text-white/70"
+												>{symbol}</span
 											>
 										</div>
 									</td>
-									<td class="px-6 py-4">
-										<code class="text-xs text-slate-400">
-											{transfer.event.from.slice(0, 6)}...{transfer.event.from.slice(-4)}
+									<td class="px-4 py-2">
+										<code class="text-[10px] text-white/50">
+											{transfer.event.from.slice(0, 6)}···{transfer.event.from.slice(-4)}
 										</code>
 									</td>
-									<td class="px-6 py-4">
-										<code class="text-xs text-slate-400">
-											{transfer.event.to.slice(0, 6)}...{transfer.event.to.slice(-4)}
+									<td class="px-4 py-2">
+										<code class="text-[10px] text-white/50">
+											{transfer.event.to.slice(0, 6)}···{transfer.event.to.slice(-4)}
 										</code>
 									</td>
-								<td class="px-6 py-4 text-right">
-									<div class="text-sm font-semibold text-white">
-										{formatNumber(amount)}
-									</div>
-								</td>
-								<td class="px-6 py-4">
-									<div class="text-sm text-slate-400">{formattedTimestamp}</div>
-								</td>
-								<td class="px-6 py-4 text-right">
-									<div class="text-sm text-slate-400">
-										{transfer.blockNumber.toLocaleString()}
-									</div>
-								</td>
-								<td class="px-6 py-4 text-right">
-									<div class="text-sm text-slate-400">{timeAgo}</div>
-								</td>
+									<td class="px-4 py-2 text-right">
+										<div class="text-[11px] font-semibold tabular-nums text-white/70">
+											{formatNumber(amount)}
+										</div>
+									</td>
+									<td class="px-4 py-2">
+										<div class="text-[10px] text-white/50">{formattedTimestamp}</div>
+									</td>
+									<td class="px-4 py-2 text-right">
+										<div class="text-[10px] tabular-nums text-white/50">
+											{transfer.blockNumber.toLocaleString()}
+										</div>
+									</td>
+									<td class="px-4 py-2 text-right">
+										<div class="text-[10px] text-white/50">{timeAgo}</div>
+									</td>
 								</tr>
 							{/each}
 						{/if}

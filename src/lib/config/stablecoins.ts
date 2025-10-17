@@ -1,5 +1,11 @@
 export const stablecoins = [
 	{
+		address: '0x820c137fa70c8691f0e44dc420a5e53c168921dc',
+		symbol: 'USDS',
+		type: 'Crypto-backed',
+		decimals: 18
+	},
+	{
 		address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
 		symbol: 'USDC',
 		type: 'Fiat-backed',
