@@ -34,10 +34,10 @@
 		"tailwindcss": "^4.1.13",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.44.1",
-		"vite": "^7.1.7"
+		"vite": "^7.1.7",
+		"pino-pretty": "^13.1.2"
 	},
 	"dependencies": {
-		"@sqd-pipes/pipes": "^0.0.1-alpha.28",
-		"pino-pretty": "^13.1.2"
+		"@sqd-pipes/pipes": "^0.0.1-alpha.28"
 	}
 }
