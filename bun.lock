@@ -4,7 +4,7 @@
     "": {
       "name": "pipes-sdk-tbilisi",
       "dependencies": {
-        "@sqd-pipes/pipes": "^0.0.1-alpha.28",
+        "@sqd-pipes/pipes": "^0.0.1-alpha.29",
         "pino": "^10.0.0",
         "pino-pretty": "^13.1.2",
       },
