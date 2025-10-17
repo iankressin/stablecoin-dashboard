@@ -5,6 +5,7 @@ import {
 	type DecodedEvent
 } from '@sqd-pipes/pipes/evm';
 import { stablecoins } from '$lib/config/stablecoins';
+import pino from 'pino';
 
 type TransferEventArgs = {
 	readonly from: string;
@@ -25,7 +26,8 @@ export async function stablesPipe() {
 
 	isRunning = true;
 	pipeInstance = createEvmPortalSource({
-		portal: 'https://portal.sqd.dev/datasets/base-mainnet'
+		portal: 'https://portal.sqd.dev/datasets/base-mainnet',
+		logger: pino()
 	}).pipe(
 		createEvmDecoder({
 			range: { from: 'latest' },
