@@ -23,7 +23,7 @@
 			const value = Number(total) / 10 ** decimals;
 			return {
 				name: symbol,
-				value: value,
+				value: Math.max(value, 0.01), // Ensure minimum value for log scale
 				contract: contract
 			};
 		});
@@ -75,14 +75,16 @@
 							},
 							callbacks: {
 								label: function (context: any) {
-									return 'VOL: ' + formatNumber(context.parsed.y);
+									const actualValue = context.parsed.y;
+									return 'VOL: ' + formatNumber(actualValue);
 								}
 							}
 						}
 						},
 						scales: {
 							y: {
-								beginAtZero: true,
+								type: 'logarithmic',
+								min: 1,
 								grid: {
 									color: 'rgba(255, 255, 255, 0.05)',
 									lineWidth: 1
@@ -92,6 +94,14 @@
 									font: {
 										family: 'monospace',
 										size: 9
+									},
+									callback: function(value: any) {
+										if (value >= 1000000) {
+											return (value / 1000000).toFixed(1) + 'M';
+										} else if (value >= 1000) {
+											return (value / 1000).toFixed(1) + 'K';
+										}
+										return value;
 									}
 								},
 								border: {

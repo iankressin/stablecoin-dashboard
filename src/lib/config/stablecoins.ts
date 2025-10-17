@@ -19,9 +19,15 @@ export const stablecoins = [
 	},
 	{
 		address: '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',
-		symbol: 'USDT',
-		type: 'Stable-backed',
+		symbol: 'USDT.bridge',
+		type: 'Fiat-backed',
 		decimals: 6
+	},
+	{
+		address: '0x5d3a1Ff2b6BAb83b63cd9AD0787074081a52ef34',
+		symbol: 'USDe',
+		type: 'Stable-backed',
+		decimals: 18
 	},
 	{
 		address: '0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42',
