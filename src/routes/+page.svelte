@@ -2,12 +2,104 @@
 	import { onMount } from 'svelte';
 	import type { TransferEvent } from '$lib/indexer/stables.indexer';
 	import { stablecoinsMap } from '$lib/config/stablecoins';
+	import { Chart, registerables } from 'chart.js';
+
+	Chart.register(...registerables);
 
 	let events = $state<TransferEvent[]>([]);
 	let aggregatedByContract = $state<Record<string, bigint>>({});
 	let updatedContracts = $state<Set<string>>(new Set());
 	let eventCount = $state(0);
 	let isConnected = $state(false);
+
+	let chartCanvas: HTMLCanvasElement | undefined = $state();
+	let chartInstance: Chart | null = null;
+
+	// Prepare chart data
+	let chartData = $derived.by(() => {
+		const data = Object.entries(aggregatedByContract).map(([contract, total]) => {
+			const stablecoin = stablecoinsMap.get(contract);
+			const value = Number(total) / 10 ** (stablecoin?.decimals ?? 0);
+			return {
+				name: stablecoin?.symbol ?? 'Unknown',
+				value: value,
+				contract: contract
+			};
+		});
+
+		return {
+			labels: data.map((d) => d.name),
+			datasets: [
+				{
+					label: 'Transfer Volume',
+					data: data.map((d) => d.value),
+					backgroundColor: 'rgba(59, 130, 246, 0.8)',
+					borderColor: 'rgba(59, 130, 246, 1)',
+					borderWidth: 1,
+					borderRadius: 4
+				}
+			]
+		};
+	});
+
+	// Initialize and update chart when canvas or data changes
+	$effect(() => {
+		if (chartCanvas && chartData.labels.length > 0) {
+			if (!chartInstance) {
+				// Initialize chart
+				chartInstance = new Chart(chartCanvas, {
+					type: 'bar',
+					data: chartData,
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: {
+								display: false
+							},
+							tooltip: {
+								backgroundColor: 'rgba(15, 23, 42, 0.9)',
+								titleColor: 'rgba(148, 163, 184, 1)',
+								bodyColor: 'rgba(255, 255, 255, 1)',
+								borderColor: 'rgba(51, 65, 85, 1)',
+								borderWidth: 1,
+								padding: 12,
+								displayColors: false,
+								callbacks: {
+									label: function (context: any) {
+										return formatNumber(context.parsed.y);
+									}
+								}
+							}
+						},
+						scales: {
+							y: {
+								beginAtZero: true,
+								grid: {
+									color: 'rgba(51, 65, 85, 0.3)'
+								},
+								ticks: {
+									color: 'rgba(148, 163, 184, 1)'
+								}
+							},
+							x: {
+								grid: {
+									display: false
+								},
+								ticks: {
+									color: 'rgba(148, 163, 184, 1)'
+								}
+							}
+						}
+					}
+				});
+			} else {
+				// Update existing chart
+				chartInstance.data = chartData;
+				chartInstance.update('none');
+			}
+		}
+	});
 
 	// Track value changes for animations
 	function highlightUpdate(contract: string) {
@@ -21,6 +113,7 @@
 	}
 
 	onMount(() => {
+
 		const eventSource = new EventSource('/api/stables');
 
 		eventSource.onopen = () => {
@@ -56,6 +149,9 @@
 		};
 
 		return () => {
+			if (chartInstance) {
+				chartInstance.destroy();
+			}
 			eventSource.close();
 		};
 	});
@@ -65,6 +161,19 @@
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2
 		}).format(value);
+	}
+
+	function formatTimestamp(timestamp: Date): string {
+		const date = new Date(timestamp);
+		const day = date.getDate();
+		const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+		const month = months[date.getMonth()];
+		const year = date.getFullYear();
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+
+		return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
 	}
 
 	function getTimeAgo(timestamp: Date): string {
@@ -116,6 +225,44 @@
 			<div class="rounded-xl border border-slate-800/30 bg-slate-900/30 px-4 py-3 backdrop-blur-xl">
 				<div class="mb-1 text-xs tracking-wider text-slate-500 uppercase">Buffer Size</div>
 				<div class="text-2xl font-bold text-white">{events.length}</div>
+			</div>
+		</div>
+
+		<!-- Bar Chart Card -->
+		<div
+			class="mt-6 overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 shadow-2xl backdrop-blur-xl"
+		>
+			<div class="border-b border-slate-800/50 px-6 py-4">
+				<h2 class="text-xl font-semibold text-white">Volume by Asset</h2>
+			</div>
+
+			<div class="px-6 py-8">
+				{#if Object.keys(aggregatedByContract).length === 0}
+					<div class="flex flex-col items-center gap-3 py-12 text-slate-500">
+						<div
+							class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50"
+						>
+							<svg
+								class="h-6 w-6 text-slate-600"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+								/>
+							</svg>
+						</div>
+						<span>Waiting for transfer data...</span>
+					</div>
+				{:else}
+					<div class="h-80">
+						<canvas bind:this={chartCanvas}></canvas>
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -247,27 +394,32 @@
 							>
 								To
 							</th>
-							<th
-								class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								Amount
-							</th>
-							<th
-								class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								Block
-							</th>
-							<th
-								class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
-							>
-								Time
-							</th>
+						<th
+							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
+						>
+							Amount
+						</th>
+						<th
+							class="px-6 py-4 text-left text-xs font-medium tracking-wider text-slate-400 uppercase"
+						>
+							Timestamp
+						</th>
+						<th
+							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
+						>
+							Block
+						</th>
+						<th
+							class="px-6 py-4 text-right text-xs font-medium tracking-wider text-slate-400 uppercase"
+						>
+							Time
+						</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-800/30">
 						{#if events.length === 0}
 							<tr>
-								<td colspan="6" class="px-6 py-12 text-center text-slate-500">
+								<td colspan="7" class="px-6 py-12 text-center text-slate-500">
 									<div class="flex flex-col items-center gap-3">
 										<div
 											class="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/50"
@@ -294,6 +446,7 @@
 							{#each events.slice(0, 20) as transfer}
 								{@const stablecoin = stablecoinsMap.get(transfer.contract.toLowerCase())}
 								{@const amount = Number(transfer.event.value) / 10 ** (stablecoin?.decimals ?? 0)}
+								{@const formattedTimestamp = formatTimestamp(transfer.timestamp)}
 								{@const timeAgo = getTimeAgo(transfer.timestamp)}
 								<tr class="transition-all duration-300 hover:bg-slate-800/30">
 									<td class="px-6 py-4">
@@ -318,19 +471,22 @@
 											{transfer.event.to.slice(0, 6)}...{transfer.event.to.slice(-4)}
 										</code>
 									</td>
-									<td class="px-6 py-4 text-right">
-										<div class="text-sm font-semibold text-white">
-											{formatNumber(amount)}
-										</div>
-									</td>
-									<td class="px-6 py-4 text-right">
-										<div class="text-sm text-slate-400">
-											{transfer.blockNumber.toLocaleString()}
-										</div>
-									</td>
-									<td class="px-6 py-4 text-right">
-										<div class="text-sm text-slate-400">{timeAgo}</div>
-									</td>
+								<td class="px-6 py-4 text-right">
+									<div class="text-sm font-semibold text-white">
+										{formatNumber(amount)}
+									</div>
+								</td>
+								<td class="px-6 py-4">
+									<div class="text-sm text-slate-400">{formattedTimestamp}</div>
+								</td>
+								<td class="px-6 py-4 text-right">
+									<div class="text-sm text-slate-400">
+										{transfer.blockNumber.toLocaleString()}
+									</div>
+								</td>
+								<td class="px-6 py-4 text-right">
+									<div class="text-sm text-slate-400">{timeAgo}</div>
+								</td>
 								</tr>
 							{/each}
 						{/if}
