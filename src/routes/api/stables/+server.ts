@@ -8,15 +8,8 @@ import { stablesPipe } from '$lib/indexer/stables.indexer';
 export async function GET() {
 	const stream = new ReadableStream({
 		async start(controller) {
-			const encoder = new TextEncoder();
-
 			try {
-				const pipe = await stablesPipe();
-
-				for await (const { data } of pipe) {
-					const message = `data: ${JSON.stringify(data.transfers)}\n\n`;
-					controller.enqueue(encoder.encode(message));
-				}
+				await stablesPipe(controller);
 			} catch (error) {
 				console.error('Stream error:', error);
 				controller.error(error);
